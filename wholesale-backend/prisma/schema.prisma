@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Firm {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique // e.g., "Nirmal Medical Store"
+  medicines Medicine[]
+  orders    Order[]
+}
+
+model User {
+  id             Int       @id @default(autoincrement())
+  name           String
+  phone          String    @unique
+  licenseNumber  String   
+  gstNumber      String?
+  address        String    @default("Not Provided") 
+  password       String
+  role           String    @default("CUSTOMER") 
+  balance        Float     @default(0) 
+  resetOtp       String?   // <-- NEW: Stores the 4-digit code
+  resetOtpExpiry DateTime? // <-- NEW: Security timeout (e.g. 10 mins)
+  orders         Order[]
+  transactions  Transaction[]
+}
+
+model Medicine {
+  id          Int      @id @default(autoincrement())
+  name        String
+  composition String?
+  price       Float
+  stock       Int
+  company     String   @default("Unknown") // <-- NEW FIELD
+  firmId      Int
+  firm        Firm     @relation(fields: [firmId], references: [id])
+}
+
+model Order {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  firmId    Int
+  cartItems Json     
+  status    String   @default("PENDING") 
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  firm      Firm     @relation(fields: [firmId], references: [id])
+}
+
+// --- NEW NOTIFICATION MODEL ---
+model Notification {
+  id        Int      @id @default(autoincrement())
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Transaction {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  amount      Float    // Positive for debt (Order), Negative for payment (Credit)
+  type        String   // "ORDER" or "PAYMENT"
+  description String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
+}
