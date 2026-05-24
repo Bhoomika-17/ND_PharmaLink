@@ -28,7 +28,7 @@ export default function Cart() {
         items: cart 
       });
 
-      toast.success("Order placed successfully! Nirmal Medical has been notified.", { duration: 4000 });
+      toast.success("Order placed successfully! Gaurav Varshney has been notified.", { duration: 4000 });
       clearCart();
       navigate('/products');
     } catch (error) {

@@ -9,9 +9,15 @@ export default function AdminDashboard() {
   const [orders, setOrders] = useState([]);
   const [formData, setFormData] = useState({ name: '', composition: '', price: '', stock: '', firmId: '' });
   const [ledgerUsers, setLedgerUsers] = useState([]);
+  
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const fileInputRef = useRef(null);
+
+  // NEW: Loading States
+  const [isAdding, setIsAdding] = useState(false);
+  const [loadingOrderId, setLoadingOrderId] = useState(null);
+  const [paymentLoadingId, setPaymentLoadingId] = useState(null);
 
   const fetchData = async () => {
     try {
@@ -35,46 +41,56 @@ export default function AdminDashboard() {
 
   const handleAddMedicine = async (e) => {
     e.preventDefault();
+    setIsAdding(true);
     try {
       await axios.post(import.meta.env.VITE_API_URL +'/api/medicines', formData);
       toast.success("Medicine added successfully!");
       setFormData({ name: '', composition: '', price: '', stock: '', firmId: formData.firmId });
     } catch (error) {
       toast.error("Failed to add medicine.");
+    } finally {
+      setIsAdding(false);
     }
   };
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    setLoadingOrderId(orderId);
     try {
       await axios.put(import.meta.env.VITE_API_URL +`/api/orders/${orderId}/status`, { status: newStatus });
       toast.success(`Order marked as ${newStatus}`);
       fetchData(); 
     } catch (error) {
       toast.error("Failed to update order status");
+    } finally {
+      setLoadingOrderId(null);
     }
   };
 
-  // --- RECORD PAYMENT ---
-  const handlePayment = async (userId, e) => {
-    e.preventDefault();
-    try {
-      await axios.post(import.meta.env.VITE_API_URL +`/api/users/${userId}/pay`, { amount: paymentAmount, method: paymentMethod });
-      toast.success("Payment recorded successfully!");
-      setPaymentAmount('');
-      fetchData(); // Refresh balances
-    } catch (error) {
-      toast.error("Failed to record payment");
-    }
-  };
+  const handleKhataUpdate = async (userId, e) => {
+  e.preventDefault();
+  setPaymentLoadingId(userId);
 
-  // --- EXCEL UPLOAD ---
+  const formData = new FormData(e.target);
+  const amount = formData.get('amount');
+  const khataNote = formData.get('khataNote');
+
+  try {
+    await axios.put(import.meta.env.VITE_API_URL +`/api/users/${userId}/khata`, { amount, khataNote });
+    toast.success("Ledger updated successfully!");
+    fetchData(); // Refresh the data to show updates
+  } catch (error) {
+    toast.error("Failed to update ledger");
+  } finally {
+    setPaymentLoadingId(null);
+  }
+};
+
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     const uploadFormData = new FormData();
     uploadFormData.append('file', file);
-    // NEW: Send the firm ID selected in the "Select Firm" dropdown!
     uploadFormData.append('firmId', formData.firmId); 
 
     const loadToast = toast.loading("Uploading medicines...");
@@ -90,7 +106,6 @@ export default function AdminDashboard() {
   return (
     <div className="flex flex-col md:flex-row min-h-[80vh] mt-4 md:mt-8 gap-4 md:gap-6 p-2 md:p-4">
       
-      {/* Sidebar Navigation */}
       <div className="w-full md:w-64 bg-white shadow-md rounded-lg p-2 md:p-4 flex flex-row md:flex-col gap-2 overflow-x-auto border border-gray-100 scrollbar-hide">
         <h2 className="hidden md:block text-xl font-bold text-blue-900 mb-4 px-2">Admin Panel</h2>
         
@@ -105,10 +120,8 @@ export default function AdminDashboard() {
         </button>
       </div>
 
-      {/* Main Content Area */}
       <div className="flex-1 bg-white shadow-md rounded-lg p-4 md:p-6 border border-gray-100 w-full overflow-hidden">
         
-        {/* --- INVENTORY TAB --- */}
         {activeTab === 'inventory' && (
           <div>
             <div className="flex justify-between items-center mb-6 border-b pb-2">
@@ -151,14 +164,13 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <button type="submit" className="w-full bg-green-600 text-white font-bold py-3 rounded hover:bg-green-700 flex justify-center items-center gap-2">
-                <PlusCircle size={20} /> Save to Database
+              <button type="submit" disabled={isAdding} className={`w-full text-white font-bold py-3 rounded flex justify-center items-center gap-2 transition ${isAdding ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}>
+                <PlusCircle size={20} /> {isAdding ? 'Saving...' : 'Save to Database'}
               </button>
             </form>
           </div>
         )}
 
-        {/* --- ORDERS TAB --- */}
         {activeTab === 'orders' && (
           <div>
             <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-6 border-b pb-2">Customer Orders</h3>
@@ -175,12 +187,9 @@ export default function AdminDashboard() {
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-3">
                           <h4 className="font-bold text-lg text-blue-900">Order #{order.id}</h4>
-                          <span className="text-xs font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-full">
-                            {order.firm?.name || "Multiple"}
-                          </span>
+                          {/* FIX: Removed overall firm badge */}
                         </div>
                         
-                        {/* Improved Customer Details with Location */}
                         <div className="mb-4 bg-white p-3 rounded border border-gray-100 shadow-sm">
                           <p className="text-sm font-bold text-gray-800">{order.user?.name} <span className="font-normal text-gray-500">| Ph: {order.user?.phone}</span></p>
                           <p className="text-sm text-gray-600 mt-1">📍 <span className="font-semibold">Location:</span> {order.user?.address || "No address provided"}</p>
@@ -191,8 +200,12 @@ export default function AdminDashboard() {
                           <h5 className="font-bold text-gray-700 mb-2">Items Ordered:</h5>
                           <ul className="bg-white border rounded p-3 text-sm divide-y">
                             {order.cartItems?.map((item, idx) => (
-                              <li key={idx} className="py-2 flex justify-between">
-                                <span>{item.name} <span className="text-gray-400 ml-2">x {item.quantity}</span></span>
+                              <li key={idx} className="py-2 flex justify-between items-start">
+                                <div>
+                                  <p className="font-semibold text-gray-800">{item.name} <span className="text-gray-500 font-normal ml-1">x {item.quantity}</span></p>
+                                  {/* FIX: Showing the firm associated with each specific item! */}
+                                  <p className="text-xs text-blue-600 font-medium">🏢 {item.firm?.name || item.company || 'Partner Firm'}</p>
+                                </div>
                                 <span className="font-bold text-gray-700">₹{item.price * item.quantity}</span>
                               </li>
                             ))}
@@ -220,9 +233,10 @@ export default function AdminDashboard() {
                           {order.status === 'PENDING' && (
                             <button 
                               onClick={() => handleUpdateOrderStatus(order.id, 'FULFILLED')}
-                              className="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 transition w-full shadow-sm"
+                              disabled={loadingOrderId === order.id}
+                              className={`text-white px-4 py-2 rounded font-bold transition w-full shadow-sm ${loadingOrderId === order.id ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
                             >
-                              Mark Fulfilled
+                              {loadingOrderId === order.id ? 'Processing...' : 'Mark Fulfilled'}
                             </button>
                           )}
                         </div>
@@ -235,39 +249,51 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* --- KHATA LEDGER TAB --- */}
         {activeTab === 'khata' && (
-          <div>
-            <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-6 border-b pb-2">Customer Balances</h3>
-            <div className="grid gap-4">
-              {ledgerUsers.map(customer => (
-                <div key={customer.id} className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col md:flex-row justify-between items-center gap-4">
-                  <div className="w-full md:w-auto">
-                    <h4 className="font-bold text-lg">{customer.name}</h4>
-                    <p className="text-sm text-gray-600">Ph: {customer.phone}</p>
-                    <p className={`font-black text-xl mt-1 ${customer.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      Due: ₹{customer.balance.toFixed(2)}
-                    </p>
-                  </div>
-                  
-                  <form onSubmit={(e) => handlePayment(customer.id, e)} className="flex flex-wrap gap-2 w-full md:w-auto bg-white p-2 rounded border shadow-sm">
-                    <input 
-                      type="number" required placeholder="Amount" 
-                      onChange={(e) => setPaymentAmount(e.target.value)}
-                      className="border rounded p-2 w-24 outline-none focus:border-blue-500"
-                    />
-                    <select onChange={(e) => setPaymentMethod(e.target.value)} className="border rounded p-2 bg-white outline-none focus:border-blue-500">
-                      <option>Cash</option>
-                      <option>UPI</option>
-                      <option>Bank Trf</option>
-                    </select>
-                    <button type="submit" className="bg-green-600 text-white font-bold px-4 py-2 rounded hover:bg-green-700 transition">Receive</button>
-                  </form>
-                </div>
-              ))}
-            </div>
+  <div>
+    <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-6 border-b pb-2">Manual Customer Ledger</h3>
+    <div className="grid gap-4">
+      {ledgerUsers.map(customer => (
+        <div key={customer.id} className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col md:flex-row justify-between items-start gap-4">
+
+          <div className="w-full md:w-1/3">
+            <h4 className="font-bold text-lg">{customer.name}</h4>
+            <p className="text-sm text-gray-600">Ph: {customer.phone}</p>
           </div>
-        )}
+
+          <form onSubmit={(e) => handleKhataUpdate(customer.id, e)} className="flex flex-col gap-3 w-full md:w-2/3 bg-white p-4 rounded border shadow-sm">
+            <div className="flex flex-col md:flex-row gap-3">
+              <div className="flex-1">
+                <label className="block text-xs font-bold text-gray-500 mb-1">Set Amount (₹)</label>
+                <input 
+                  type="number" step="0.01" required 
+                  defaultValue={customer.balance}
+                  name="amount"
+                  className="border rounded p-2 w-full outline-none focus:border-blue-500 font-bold text-gray-800"
+                />
+              </div>
+              <div className="flex-[2]">
+                <label className="block text-xs font-bold text-gray-500 mb-1">Notes to Customer (Optional)</label>
+                <input 
+                  type="text" 
+                  defaultValue={customer.khataNote || ''}
+                  name="khataNote"
+                  placeholder="e.g. Received 5000 via UPI today..."
+                  className="border rounded p-2 w-full outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            <button type="submit" disabled={paymentLoadingId === customer.id} className={`text-white font-bold px-4 py-2 rounded transition mt-1 w-full md:w-auto self-end ${paymentLoadingId === customer.id ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
+              {paymentLoadingId === customer.id ? 'Updating...' : 'Update Ledger'}
+            </button>
+          </form>
+
+        </div>
+      ))}
+    </div>
+  </div>
+)}
       </div>
     </div>
   );

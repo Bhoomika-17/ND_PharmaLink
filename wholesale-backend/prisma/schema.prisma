@@ -23,6 +23,7 @@ model User {
   password       String
   role           String    @default("CUSTOMER") 
   balance        Float     @default(0) 
+  khataNote      String?
   resetOtp       String?   // <-- NEW: Stores the 4-digit code
   resetOtpExpiry DateTime? // <-- NEW: Security timeout (e.g. 10 mins)
   orders         Order[]

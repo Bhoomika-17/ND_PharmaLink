@@ -407,10 +407,10 @@ app.post('/api/orders', async (req, res) => {
     const orderTotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     // --- NEW: KHATA LEDGER LOGIC ---
     // Increase user's outstanding balance
-    await prisma.user.update({
-      where: { id: parseInt(userId) },
-      data: { balance: { increment: orderTotal } }
-    });
+    // await prisma.user.update({
+    //   where: { id: parseInt(userId) },
+    //   data: { balance: { increment: orderTotal } }
+    // });
     // Record the transaction
     await prisma.transaction.create({
       data: {
@@ -527,7 +527,7 @@ app.get('/api/users/ledger', async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       where: { role: 'CUSTOMER' },
-      select: { id: true, name: true, phone: true, balance: true },
+      select: { id: true, name: true, phone: true, balance: true, khataNote: true },
       orderBy: { balance: 'desc' } // Shows highest debtors first
     });
     res.json(users);
@@ -728,6 +728,24 @@ app.post('/api/ai/voice-order', async (req, res) => {
   }
 });
 
+// --- ADMIN: MANUALLY OVERWRITE KHATA & NOTES ---
+app.put('/api/users/:id/khata', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount, khataNote } = req.body;
+
+    const updatedUser = await prisma.user.update({
+      where: { id: parseInt(id) },
+      data: { 
+        balance: parseFloat(amount), // Repurposing balance as the manual amount
+        khataNote: khataNote 
+      }
+    });
+    res.json({ message: "Khata updated successfully", user: updatedUser });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update Khata" });
+  }
+});
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
