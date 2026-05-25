@@ -623,9 +623,26 @@ app.post('/api/medicines/bulk', upload.single('file'), async (req, res) => {
       }
 
       // --- PARSE THE MEDICINE ROW ---
-      // If Column A is a valid SNo. number, and Column B has the medicine name
-      if (!isNaN(parseFloat(col0)) && col1 !== "") {
-        let fullName = col2 ? `${col1} (${col2.replace(/\s+/g, ' ').trim()})` : col1;
+      // If Column A is a valid SNo. number
+      if (!isNaN(parseFloat(col0))) {
+        let fullName = "";
+        
+        // 1. If ITEM and DESCRIPTION both exist
+        if (col1 && col2) {
+          fullName = `${col1} (${col2.replace(/\s+/g, ' ').trim()})`;
+        } 
+        // 2. If only ITEM exists
+        else if (col1) {
+          fullName = col1;
+        } 
+        // 3. If only DESCRIPTION exists (Restoring your old logic!)
+        else if (col2) {
+          fullName = col2.replace(/\s+/g, ' ').trim();
+        } 
+        // 4. If both are totally blank, skip the row
+        else {
+          continue; 
+        }
         
         rawMedicines.push({
           name: fullName,
