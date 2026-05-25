@@ -12,12 +12,17 @@ export default function CustomerDashboard() {
   const [myOrders, setMyOrders] = useState([]);
   const [recommendations, setRecommendations] = useState([]); 
   const [loading, setLoading] = useState(true);
+  const [khata, setKhata] = useState({ balance: 0, note: null });
 
   useEffect(() => {
     if (user) {
       if (user.role === 'CUSTOMER') {
+        
+        // FIX: Save data to React State so the screen updates!
         axios.get(import.meta.env.VITE_API_URL +`/api/users/${user.id}`)
-          .then(res => user.balance = res.data.balance) 
+          .then(res => {
+            setKhata({ balance: res.data.balance, note: res.data.khataNote });
+          }) 
           .catch(console.error);
 
         axios.get(import.meta.env.VITE_API_URL +`/api/users/${user.id}/orders`)
@@ -109,22 +114,24 @@ export default function CustomerDashboard() {
         </div>
       </div>
 {/* --- MANUAL KHATA LEDGER SECTION --- */}
-<div className="bg-emerald-50 p-6 rounded-xl border border-emerald-100 mb-8 shadow-sm">
-  <h2 className="text-lg font-bold text-emerald-900 mb-4">Ledger Updates from Nirmal Durga Pharma</h2>
-  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-    <div>
-      <p className="text-sm text-emerald-700 font-semibold mb-1">Amount Submitted / Received:</p>
-      <p className="text-3xl font-black text-emerald-700">₹{user.balance?.toFixed(2) || '0.00'}</p>
-    </div>
-
-    {user.khataNote && (
-      <div className="bg-white p-4 rounded-lg border border-emerald-200 w-full md:w-1/2 shadow-sm">
-        <p className="text-xs text-gray-500 font-bold uppercase mb-1">Note from Admin:</p>
-        <p className="text-sm text-gray-800 italic">"{user.khataNote}"</p>
+      <div className="bg-emerald-50 p-6 rounded-xl border border-emerald-100 mb-8 shadow-sm">
+        <h2 className="text-lg font-bold text-emerald-900 mb-4">Ledger Updates from ND PharmaLink</h2>
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <p className="text-sm text-emerald-700 font-semibold mb-1">Amount Status:</p>
+            {/* FIX: Read from khata state */}
+            <p className="text-3xl font-black text-emerald-700">₹{khata.balance?.toFixed(2) || '0.00'}</p>
+          </div>
+          
+          {/* FIX: Read from khata state */}
+          {khata.note && (
+            <div className="bg-white p-4 rounded-lg border border-emerald-200 w-full md:w-1/2 shadow-sm">
+              <p className="text-xs text-gray-500 font-bold uppercase mb-1">Note from Gaurav Varshney:</p>
+              <p className="text-sm text-gray-800 italic">"{khata.note}"</p>
+            </div>
+          )}
+        </div>
       </div>
-    )}
-  </div>
-</div>
       {recommendations.length > 0 && (
         <div className="mb-10 bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-xl border border-indigo-100 shadow-sm relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">

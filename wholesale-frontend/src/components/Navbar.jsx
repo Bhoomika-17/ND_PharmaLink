@@ -30,8 +30,7 @@ export default function Navbar() {
     <nav className="bg-blue-800 text-white p-3 shadow-md sticky top-0 z-50">
       <div className="container mx-auto flex justify-between items-center">
         
-        <Link to="/" className="text-lg md:text-xl font-black leading-tight">
-          ND<br className="md:hidden" />
+        <Link to="/" className="text-lg md:text-xl font-black leading-tight">ND<br className="md:hidden" />
           <span className="text-blue-300 text-sm md:text-base font-semibold md:ml-2">PharmaLink</span>
         </Link>
 

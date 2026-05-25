@@ -527,8 +527,9 @@ app.get('/api/users/ledger', async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       where: { role: 'CUSTOMER' },
-      select: { id: true, name: true, phone: true, balance: true, khataNote: true },
-      orderBy: { balance: 'desc' } // Shows highest debtors first
+      // FIX: Added licenseNumber and address here!
+      select: { id: true, name: true, phone: true, balance: true, khataNote: true, licenseNumber: true, address: true },
+      orderBy: { balance: 'desc' } 
     });
     res.json(users);
   } catch (error) {
@@ -596,18 +597,11 @@ app.post('/api/medicines/bulk', upload.single('file'), async (req, res) => {
       const col0 = String(row[0] || '').trim();
       const col1 = String(row[1] || '').trim();
       const col2 = String(row[2] || '').trim(); 
-      const rate = parseFloat(row[3]);          
+      const mrp = parseFloat(row[4]); // FIX: Now grabbing M.R.P. from Column E (Index 4)
 
       const skipKeywords = ['LIST OF ITEMS', 'SNo.', 'Page', 'Continued', 'Import Purchase', 'Phone', 'GSTIN', 'MOHALLA'];
       
-      if (!col0 || skipKeywords.some(keyword => col0.includes(keyword)) || col0 === headerFirmName) {
-        continue;
-      }
-
-      if (isNaN(parseFloat(col0))) {
-        currentCompany = col0; 
-        continue;
-      }
+      // ... (skip keyword logic) ...
 
       if (!isNaN(parseFloat(col0))) {
         let fullName = "";
@@ -618,7 +612,7 @@ app.post('/api/medicines/bulk', upload.single('file'), async (req, res) => {
         rawMedicines.push({
           name: fullName,
           composition: "", 
-          price: isNaN(rate) ? 0 : rate,
+          price: isNaN(mrp) ? 0 : mrp, // FIX: Saving M.R.P. as the price in the database
           stock: 100, 
           company: currentCompany, 
           firmId: targetFirmId || 1
@@ -744,6 +738,20 @@ app.put('/api/users/:id/khata', async (req, res) => {
     res.json({ message: "Khata updated successfully", user: updatedUser });
   } catch (error) {
     res.status(500).json({ error: "Failed to update Khata" });
+  }
+});
+
+// --- GET SPECIFIC USER KHATA DETAILS ---
+app.get('/api/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await prisma.user.findUnique({
+      where: { id: parseInt(id) },
+      select: { balance: true, khataNote: true } // Only send safe data
+    });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch user data" });
   }
 });
 app.listen(PORT, () => {

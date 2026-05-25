@@ -1,14 +1,18 @@
+import { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { Trash2, Plus, Minus } from 'lucide-react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast'; // <-- Import Toast
+import toast from 'react-hot-toast';
 
 export default function Cart() {
   const { cart, removeFromCart, updateQuantity, clearCart } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
+  
+  // NEW: Loading state for the checkout button
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const totalAmount = cart.reduce((total, item) => total + item.price * item.quantity, 0);
 
@@ -19,6 +23,8 @@ export default function Cart() {
       return;
     }
 
+    setIsPlacingOrder(true); // START LOADER
+    
     try {
       const firmId = cart[0].firmId; 
       
@@ -33,6 +39,8 @@ export default function Cart() {
       navigate('/products');
     } catch (error) {
       toast.error("Failed to place order. Please try again.");
+    } finally {
+      setIsPlacingOrder(false); // STOP LOADER
     }
   };
 
@@ -51,20 +59,19 @@ export default function Cart() {
                 <p className="text-sm text-gray-500">{item.firm?.name || 'Firm'}</p>
               </div>
               
-              {/* --- NEW QUANTITY CONTROLS --- */}
               <div className="flex items-center gap-3 bg-gray-100 rounded-lg p-1">
-                <button onClick={() => updateQuantity(item.id, -1)} className="p-1 bg-white rounded shadow-sm hover:bg-gray-200 text-gray-700">
+                <button onClick={() => updateQuantity(item.id, -1)} className="p-1 bg-white rounded shadow-sm hover:bg-gray-200 text-gray-700 transition">
                   <Minus size={16} />
                 </button>
                 <span className="font-bold w-6 text-center">{item.quantity}</span>
-                <button onClick={() => updateQuantity(item.id, 1)} className="p-1 bg-white rounded shadow-sm hover:bg-gray-200 text-gray-700">
+                <button onClick={() => updateQuantity(item.id, 1)} className="p-1 bg-white rounded shadow-sm hover:bg-gray-200 text-gray-700 transition">
                   <Plus size={16} />
                 </button>
               </div>
 
               <div className="flex items-center gap-6 w-32 justify-end">
                 <span className="text-lg font-bold text-green-700">₹{item.price * item.quantity}</span>
-                <button onClick={() => removeFromCart(item.id)} className="text-red-500 hover:text-red-700 p-2">
+                <button onClick={() => removeFromCart(item.id)} className="text-red-500 hover:text-red-700 p-2 transition transform active:scale-90">
                   <Trash2 size={20} />
                 </button>
               </div>
@@ -72,10 +79,16 @@ export default function Cart() {
           ))}
         </ul>
         
-        <div className="bg-gray-50 p-6 flex justify-between items-center border-t border-gray-200">
-          <span className="text-xl font-bold text-gray-800">Total: ₹{totalAmount}</span>
-          <button onClick={handleCheckout} className="bg-blue-700 text-white px-6 py-2 rounded font-bold hover:bg-blue-800 transition">
-            Place Order
+        <div className="bg-gray-50 p-6 flex flex-col md:flex-row justify-between items-center border-t border-gray-200 gap-4">
+          <span className="text-xl font-bold text-gray-800">Total: ₹{totalAmount.toFixed(2)}</span>
+          
+          {/* NEW: Dynamic Button Styling and disabled state */}
+          <button 
+            onClick={handleCheckout} 
+            disabled={isPlacingOrder}
+            className={`px-8 py-3 rounded-lg font-bold transition shadow-sm w-full md:w-auto ${isPlacingOrder ? 'bg-blue-400 text-white cursor-not-allowed' : 'bg-blue-700 text-white hover:bg-blue-800 active:scale-95 shadow-blue-700/30'}`}
+          >
+            {isPlacingOrder ? 'Placing Order...' : 'Place Order'}
           </button>
         </div>
       </div>

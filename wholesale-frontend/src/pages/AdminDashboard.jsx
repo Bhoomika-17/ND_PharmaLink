@@ -250,50 +250,56 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === 'khata' && (
-  <div>
-    <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-6 border-b pb-2">Manual Customer Ledger</h3>
-    <div className="grid gap-4">
-      {ledgerUsers.map(customer => (
-        <div key={customer.id} className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col md:flex-row justify-between items-start gap-4">
+          <div>
+            <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-6 border-b pb-2">Manual Customer Ledger</h3>
+            <div className="grid gap-4">
+              {ledgerUsers.map(customer => (
+                <div key={customer.id} className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex flex-col md:flex-row justify-between items-start gap-4">
+                  
+                  {/* FIX: Added Phone, License, and Location details here */}
+                  <div className="w-full md:w-1/3">
+                    <h4 className="font-bold text-lg text-blue-900">{customer.name}</h4>
+                    <div className="mt-2 space-y-1">
+                      <p className="text-sm text-gray-700 flex items-center gap-2">📞 <span className="font-semibold">Ph:</span> {customer.phone}</p>
+                      <p className="text-sm text-gray-700 flex items-center gap-2">📝 <span className="font-semibold">Lic:</span> {customer.licenseNumber || 'N/A'}</p>
+                      <p className="text-sm text-gray-700 flex items-start gap-2">📍 <span className="font-semibold">Loc:</span> <span className="line-clamp-2">{customer.address || 'N/A'}</span></p>
+                    </div>
+                  </div>
+                  
+                  <form onSubmit={(e) => handleKhataUpdate(customer.id, e)} className="flex flex-col gap-3 w-full md:w-2/3 bg-white p-4 rounded border shadow-sm">
+                    <div className="flex flex-col md:flex-row gap-4">
+                      <div className="w-full md:w-1/3">
+                        <label className="block text-xs font-bold text-gray-500 mb-1">Set Amount (₹)</label>
+                        <input 
+                          type="number" step="0.01" required 
+                          defaultValue={customer.balance}
+                          name="amount"
+                          className="border rounded p-2 w-full outline-none focus:border-blue-500 font-bold text-gray-800 text-lg"
+                        />
+                      </div>
+                      <div className="w-full md:w-2/3">
+                        <label className="block text-xs font-bold text-gray-500 mb-1">Notes to Customer (Optional)</label>
+                        {/* FIX: Changed input to textarea for multi-line notes */}
+                        <textarea 
+                          rows="3"
+                          defaultValue={customer.khataNote || ''}
+                          name="khataNote"
+                          placeholder="e.g. Received ₹5000 via UPI today.&#10;- Cleared pending dues."
+                          className="border rounded p-2 w-full outline-none focus:border-blue-500 text-sm resize-y"
+                        />
+                      </div>
+                    </div>
+                    
+                    <button type="submit" disabled={paymentLoadingId === customer.id} className={`text-white font-bold px-6 py-2 rounded transition mt-1 w-full md:w-auto self-end shadow-sm ${paymentLoadingId === customer.id ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 active:scale-95'}`}>
+                      {paymentLoadingId === customer.id ? 'Updating...' : 'Update Ledger'}
+                    </button>
+                  </form>
 
-          <div className="w-full md:w-1/3">
-            <h4 className="font-bold text-lg">{customer.name}</h4>
-            <p className="text-sm text-gray-600">Ph: {customer.phone}</p>
-          </div>
-
-          <form onSubmit={(e) => handleKhataUpdate(customer.id, e)} className="flex flex-col gap-3 w-full md:w-2/3 bg-white p-4 rounded border shadow-sm">
-            <div className="flex flex-col md:flex-row gap-3">
-              <div className="flex-1">
-                <label className="block text-xs font-bold text-gray-500 mb-1">Set Amount (₹)</label>
-                <input 
-                  type="number" step="0.01" required 
-                  defaultValue={customer.balance}
-                  name="amount"
-                  className="border rounded p-2 w-full outline-none focus:border-blue-500 font-bold text-gray-800"
-                />
-              </div>
-              <div className="flex-[2]">
-                <label className="block text-xs font-bold text-gray-500 mb-1">Notes to Customer (Optional)</label>
-                <input 
-                  type="text" 
-                  defaultValue={customer.khataNote || ''}
-                  name="khataNote"
-                  placeholder="e.g. Received 5000 via UPI today..."
-                  className="border rounded p-2 w-full outline-none focus:border-blue-500"
-                />
-              </div>
+                </div>
+              ))}
             </div>
-
-            <button type="submit" disabled={paymentLoadingId === customer.id} className={`text-white font-bold px-4 py-2 rounded transition mt-1 w-full md:w-auto self-end ${paymentLoadingId === customer.id ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}>
-              {paymentLoadingId === customer.id ? 'Updating...' : 'Update Ledger'}
-            </button>
-          </form>
-
-        </div>
-      ))}
-    </div>
-  </div>
-)}
+          </div>
+        )}
       </div>
     </div>
   );

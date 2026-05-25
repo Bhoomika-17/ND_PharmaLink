@@ -24,7 +24,7 @@ export default function Products() {
   const [isVisionScanning, setIsVisionScanning] = useState(false);
   const [isListening, setIsListening] = useState(false);
   
-  const [isSaving, setIsSaving] = useState(false); // NEW: Loader for editing
+  const [isSaving, setIsSaving] = useState(false); 
   
   const fileInputRef = useRef(null); 
   const [editingMed, setEditingMed] = useState(null);
@@ -33,8 +33,15 @@ export default function Products() {
     setLoading(true);
     axios.get(import.meta.env.VITE_API_URL +'/api/medicines')
       .then(res => { 
-        setAllMedicines(res.data); 
-        setDisplayMedicines(res.data); 
+        // --- NEW: Sort by Company alphabetically! ---
+        const sortedData = res.data.sort((a, b) => {
+          const compA = a.company?.toLowerCase() || 'zzz'; // pushes empty ones to the bottom
+          const compB = b.company?.toLowerCase() || 'zzz';
+          return compA.localeCompare(compB);
+        });
+
+        setAllMedicines(sortedData); 
+        setDisplayMedicines(sortedData); 
         setIsAiMode(false);
         setLoading(false); 
       })
@@ -46,7 +53,15 @@ export default function Products() {
     axios.get(import.meta.env.VITE_API_URL +'/api/firms').then(res => setFirms(res.data));
   }, [user]);
 
-  const uniqueCompanies = [...new Set(allMedicines.map(med => med.company))].filter(c => c && c !== 'Unknown');
+  // --- NEW: Dynamic Company Dropdown Logic ---
+  // Only extract companies that belong to the currently selected Firm
+  const medicinesForDropdown = selectedFirm === 'ALL' 
+    ? allMedicines 
+    : allMedicines.filter(med => med.firmId === parseInt(selectedFirm));
+
+  const uniqueCompanies = [...new Set(medicinesForDropdown.map(med => med.company))]
+    .filter(c => c && c !== 'Unknown')
+    .sort((a, b) => a.localeCompare(b)); // Sorts the dropdown alphabetically too!
 
   const applyFilters = (text, firmId, companyName) => {
     let filtered = allMedicines;
@@ -72,7 +87,10 @@ export default function Products() {
   const handleFirmChange = (e) => {
     const firmId = e.target.value;
     setSelectedFirm(firmId);
-    applyFilters(searchTerm, firmId, selectedCompany);
+    
+    // NEW: Automatically reset Company to 'ALL' when firm changes
+    setSelectedCompany('ALL'); 
+    applyFilters(searchTerm, firmId, 'ALL');
   };
 
   const handleCompanyChange = (e) => {
@@ -198,17 +216,17 @@ export default function Products() {
 
   const submitEdit = async (e) => {
     e.preventDefault();
-    setIsSaving(true); // Disable button
+    setIsSaving(true);
     try {
       await axios.put(import.meta.env.VITE_API_URL +`/api/medicines/${editingMed.id}`, editingMed);
       toast.success("Medicine updated successfully!");
       
-      // FIX: Update the items locally instead of re-fetching. This preserves your filter!
       const matchedFirm = firms.find(f => f.id === parseInt(editingMed.firmId));
       const updatedMed = { ...editingMed, firm: matchedFirm };
 
-      setAllMedicines(prev => prev.map(m => m.id === editingMed.id ? updatedMed : m));
-      setDisplayMedicines(prev => prev.map(m => m.id === editingMed.id ? updatedMed : m));
+      // Make sure edits respect the sorting!
+      setAllMedicines(prev => prev.map(m => m.id === editingMed.id ? updatedMed : m).sort((a,b) => (a.company || 'zzz').localeCompare(b.company || 'zzz')));
+      setDisplayMedicines(prev => prev.map(m => m.id === editingMed.id ? updatedMed : m).sort((a,b) => (a.company || 'zzz').localeCompare(b.company || 'zzz')));
       
       setEditingMed(null); 
     } catch (error) {
@@ -261,17 +279,24 @@ export default function Products() {
           </div>
           
           <div className="flex gap-2 w-full md:w-auto justify-center">
-            <input type="file" accept="image/*" capture="environment" ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
-            <button onClick={() => fileInputRef.current.click()} disabled={isVisionScanning} className="bg-slate-800 hover:bg-slate-900 text-white px-3 py-2 rounded-lg font-bold flex items-center justify-center transition disabled:opacity-70 shadow-sm">
-              <Camera size={20} className={isVisionScanning ? "animate-pulse text-yellow-400" : ""} />
-            </button>
-            <button onClick={handleVoiceOrder} disabled={isListening || isAiSearching} className={`px-3 py-2 rounded-lg font-bold flex items-center justify-center transition shadow-sm ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-rose-100 text-rose-700 hover:bg-rose-200'}`}>
-              <Mic size={20} />
-            </button>
-            <button onClick={handleAiSearch} disabled={isAiSearching || !searchTerm || isAiMode} className={`px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition transform active:scale-95 ${isAiMode ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg' : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:shadow-lg text-white disabled:opacity-70'}`}>
+            
+            {/* FIX: Only show Camera and Voice if NOT an Admin */}
+            {user?.role !== 'ADMIN' && (
+              <>
+                <input type="file" accept="image/*" capture="environment" ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
+                <button onClick={() => fileInputRef.current.click()} disabled={isVisionScanning} className="bg-slate-800 hover:bg-slate-900 text-white px-3 py-2 rounded-lg font-bold flex items-center justify-center transition disabled:opacity-70 shadow-sm">
+                  <Camera size={20} className={isVisionScanning ? "animate-pulse text-yellow-400" : ""} />
+                </button>
+                <button onClick={handleVoiceOrder} disabled={isListening || isAiSearching} className={`px-3 py-2 rounded-lg font-bold flex items-center justify-center transition shadow-sm ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-rose-100 text-rose-700 hover:bg-rose-200'}`}>
+                  <Mic size={20} />
+                </button>
+              </>
+            )}
+
+            {/* <button onClick={handleAiSearch} disabled={isAiSearching || !searchTerm || isAiMode} className={`px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition transform active:scale-95 ${isAiMode ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg' : 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:shadow-lg text-white disabled:opacity-70'}`}>
               <Sparkles size={18} className={isAiSearching ? "animate-spin" : ""} /> 
               <span className="hidden sm:inline">{isAiSearching ? 'Thinking...' : isAiMode ? 'AI Active' : 'Ask AI'}</span>
-            </button>
+            </button> */}
           </div>
         </div>
       </div>
@@ -366,6 +391,16 @@ export default function Products() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+      {/* --- NEW: AI PROCESSING FULL-SCREEN LOADER --- */}
+      {(isVisionScanning || (isListening && isAiSearching)) && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+          <Sparkles className="animate-spin text-blue-400 mb-6" size={64} />
+          <h2 className="text-white text-2xl md:text-3xl font-black tracking-wide text-center px-4">
+            {isVisionScanning ? "Reading handwritten list..." : "Processing voice order..."}
+          </h2>
+          <p className="text-blue-200 mt-2 text-sm">Please wait while the AI matches your inventory.</p>
         </div>
       )}
     </div>
