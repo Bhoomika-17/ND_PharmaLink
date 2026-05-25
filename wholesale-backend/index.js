@@ -571,7 +571,9 @@ app.post('/api/medicines/bulk', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
+    // Safely parse the firmId sent from the frontend dropdown
     let targetFirmId = parseInt(req.body.firmId);
+    if (isNaN(targetFirmId)) targetFirmId = 1;
 
     const workbook = xlsx.readFile(req.file.path);
     const sheetName = workbook.SheetNames[0];
@@ -580,14 +582,21 @@ app.post('/api/medicines/bulk', upload.single('file'), async (req, res) => {
     // Auto-detect firm from MARG ERP Header
     const headerFirmName = String(rows[0]?.[0] || '').trim();
     if (headerFirmName) {
+      // Use var or let outside to avoid block-scoping traps, or just use it to update targetFirmId
       const detectedFirm = await prisma.firm.findFirst({
         where: { name: { equals: headerFirmName, mode: 'insensitive' } }
       });
       if (detectedFirm) targetFirmId = detectedFirm.id; 
     }
 
-    // Set the default company to the Firm's name, so it NEVER says "Unknown" again
-    let currentCompany = detectedFirm ? detectedFirm.name : "Partner Brand"; 
+    // 1. Fetch the actual firm details from the database using the final targetFirmId
+    const firmRecord = await prisma.firm.findUnique({ 
+      where: { id: targetFirmId } 
+    });
+
+    // 2. Set the default company to the Firm's name safely so it NEVER crashes or says "Unknown"
+    let currentCompany = firmRecord ? firmRecord.name : "Partner Brand"; 
+    
     const rawMedicines = [];
 
     for (let i = 0; i < rows.length; i++) {
@@ -624,12 +633,12 @@ app.post('/api/medicines/bulk', upload.single('file'), async (req, res) => {
           price: isNaN(mrp) ? 0 : mrp, // Map MRP to price
           stock: 100, 
           company: currentCompany, 
-          firmId: targetFirmId || 1
+          firmId: targetFirmId
         });
       }
     }
 
-    // --- NEW: SMART DEDUPLICATION LOGIC ---
+    // --- SMART DEDUPLICATION LOGIC ---
     
     // Step A: Remove any duplicates that might exist INSIDE the Excel file itself
     const uniqueMedicinesMap = new Map();
@@ -641,7 +650,7 @@ app.post('/api/medicines/bulk', upload.single('file'), async (req, res) => {
     // Step B: Ask the database which of these medicines it ALREADY has for this Firm
     const existingMedicines = await prisma.medicine.findMany({
       where: {
-        firmId: targetFirmId || 1,
+        firmId: targetFirmId,
         name: { in: uniqueParsedMedicines.map(m => m.name) }
       },
       select: { name: true } // We only need to check the names
@@ -668,7 +677,7 @@ app.post('/api/medicines/bulk', upload.single('file'), async (req, res) => {
     });
     
   } catch (error) {
-    console.error(error);
+    console.error("Bulk upload error:", error);
     res.status(500).json({ error: "Failed to process MARG ERP Excel file" });
   }
 });
