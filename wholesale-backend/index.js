@@ -586,33 +586,42 @@ app.post('/api/medicines/bulk', upload.single('file'), async (req, res) => {
       if (detectedFirm) targetFirmId = detectedFirm.id; 
     }
 
-    let currentCompany = "Unknown"; 
+    // Set the default company to the Firm's name, so it NEVER says "Unknown" again
+    let currentCompany = detectedFirm ? detectedFirm.name : "Partner Brand"; 
     const rawMedicines = [];
 
-    // 1. Parse all valid rows from the Excel file
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       if (!row || row.length === 0) continue;
 
-      const col0 = String(row[0] || '').trim();
-      const col1 = String(row[1] || '').trim();
-      const col2 = String(row[2] || '').trim(); 
-      const mrp = parseFloat(row[4]); // FIX: Now grabbing M.R.P. from Column E (Index 4)
+      const col0 = String(row[0] || '').trim(); // SNo. or Company Header
+      const col1 = String(row[1] || '').trim(); // Medicine Name
+      const col2 = String(row[2] || '').trim(); // Description
+      const mrp = parseFloat(row[4]);           // M.R.P. (Index 4)
 
       const skipKeywords = ['LIST OF ITEMS', 'SNo.', 'Page', 'Continued', 'Import Purchase', 'Phone', 'GSTIN', 'MOHALLA'];
       
-      // ... (skip keyword logic) ...
+      // Skip junk rows
+      if (skipKeywords.some(keyword => col0.includes(keyword) || col1.includes(keyword)) || col0 === headerFirmName) {
+        continue;
+      }
 
-      if (!isNaN(parseFloat(col0))) {
-        let fullName = "";
-        if (col1) fullName = col2 ? `${col1} (${col2.replace(/\s+/g, ' ').trim()})` : col1;
-        else if (col2) fullName = col2.replace(/\s+/g, ' ').trim();
-        else continue; 
+      // --- THE BULLETPROOF HEADER DETECTOR ---
+      // In Marg ERP, a company header is when Column A has text AND Column B is totally empty
+      if (col0 !== "" && isNaN(parseFloat(col0)) && col1 === "") {
+        currentCompany = col0; 
+        continue;
+      }
+
+      // --- PARSE THE MEDICINE ROW ---
+      // If Column A is a valid SNo. number, and Column B has the medicine name
+      if (!isNaN(parseFloat(col0)) && col1 !== "") {
+        let fullName = col2 ? `${col1} (${col2.replace(/\s+/g, ' ').trim()})` : col1;
         
         rawMedicines.push({
           name: fullName,
           composition: "", 
-          price: isNaN(mrp) ? 0 : mrp, // FIX: Saving M.R.P. as the price in the database
+          price: isNaN(mrp) ? 0 : mrp, // Map MRP to price
           stock: 100, 
           company: currentCompany, 
           firmId: targetFirmId || 1
