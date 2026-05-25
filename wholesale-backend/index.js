@@ -527,8 +527,8 @@ app.get('/api/users/ledger', async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       where: { role: 'CUSTOMER' },
-      // FIX: Added licenseNumber and address here!
-      select: { id: true, name: true, phone: true, balance: true, khataNote: true, licenseNumber: true, address: true },
+      // FIX: Added gstNumber here!
+      select: { id: true, name: true, phone: true, balance: true, khataNote: true, licenseNumber: true, address: true, gstNumber: true },
       orderBy: { balance: 'desc' } 
     });
     res.json(users);
@@ -789,6 +789,21 @@ app.get('/api/users/:id', async (req, res) => {
     res.status(500).json({ error: "Failed to fetch user data" });
   }
 });
+
+// --- ADMIN: DELETE MISTAKEN ORDER ---
+app.delete('/api/orders/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.order.delete({
+      where: { id: parseInt(id) }
+    });
+    res.json({ message: "Order deleted successfully" });
+  } catch (error) {
+    console.error("Delete order error:", error);
+    res.status(500).json({ error: "Failed to delete order" });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Package, FileText, PlusCircle, CheckCircle, Clock, Upload, IndianRupee } from 'lucide-react';
+import { Package, FileText, PlusCircle, CheckCircle, Clock, Upload, IndianRupee, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function AdminDashboard() {
@@ -18,6 +18,7 @@ export default function AdminDashboard() {
   const [isAdding, setIsAdding] = useState(false);
   const [loadingOrderId, setLoadingOrderId] = useState(null);
   const [paymentLoadingId, setPaymentLoadingId] = useState(null);
+  const [deletingOrderId, setDeletingOrderId] = useState(null);
 
   const fetchData = async () => {
     try {
@@ -66,6 +67,21 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleDeleteOrder = async (orderId) => {
+    // Safety check so orders aren't deleted by a misclick!
+    if (!window.confirm("Are you sure you want to permanently delete this order?")) return;
+    
+    setDeletingOrderId(orderId);
+    try {
+      await axios.delete(import.meta.env.VITE_API_URL + `/api/orders/${orderId}`);
+      toast.success("Order deleted successfully!");
+      fetchData(); // Refresh the list immediately
+    } catch (error) {
+      toast.error("Failed to delete order.");
+    } finally {
+      setDeletingOrderId(null);
+    }
+  };
   const handleKhataUpdate = async (userId, e) => {
   e.preventDefault();
   setPaymentLoadingId(userId);
@@ -185,10 +201,19 @@ export default function AdminDashboard() {
                     <div key={order.id} className="border border-gray-200 rounded-lg p-4 md:p-6 bg-gray-50 shadow-sm flex flex-col md:flex-row justify-between gap-4">
                       
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-3">
-                          <h4 className="font-bold text-lg text-blue-900">Order #{order.id}</h4>
-                          {/* FIX: Removed overall firm badge */}
-                        </div>
+                        <div className="flex items-center justify-between mb-3 border-b pb-2">
+    <h4 className="font-bold text-lg text-blue-900">Order #{order.id}</h4>
+    
+    {/* NEW: Delete Order Button */}
+    <button 
+      onClick={() => handleDeleteOrder(order.id)}
+      disabled={deletingOrderId === order.id}
+      className="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 p-2 rounded transition flex items-center justify-center"
+      title="Delete this order"
+    >
+      {deletingOrderId === order.id ? <span className="animate-pulse">...</span> : <Trash2 size={18} />}
+    </button>
+  </div>
                         
                         <div className="mb-4 bg-white p-3 rounded border border-gray-100 shadow-sm">
                           <p className="text-sm font-bold text-gray-800">{order.user?.name} <span className="font-normal text-gray-500">| Ph: {order.user?.phone}</span></p>
@@ -262,6 +287,9 @@ export default function AdminDashboard() {
                     <div className="mt-2 space-y-1">
                       <p className="text-sm text-gray-700 flex items-center gap-2">📞 <span className="font-semibold">Ph:</span> {customer.phone}</p>
                       <p className="text-sm text-gray-700 flex items-center gap-2">📝 <span className="font-semibold">Lic:</span> {customer.licenseNumber || 'N/A'}</p>
+                      {customer.gstNumber && (
+      <p className="text-sm text-gray-700 flex items-center gap-2">🏢 <span className="font-semibold">GST:</span> {customer.gstNumber}</p>
+    )}
                       <p className="text-sm text-gray-700 flex items-start gap-2">📍 <span className="font-semibold">Loc:</span> <span className="line-clamp-2">{customer.address || 'N/A'}</span></p>
                     </div>
                   </div>
